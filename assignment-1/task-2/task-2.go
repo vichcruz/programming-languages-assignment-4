@@ -29,6 +29,9 @@ func main() {
 			continue
 		}
 
+		// I used ChatGPT to help me with the parsing
+		// It came up with this:
+		
 		// Try to parse integers
 		nums := make([]int, 4)
 		valid := true
