@@ -23,4 +23,3 @@ go.work
 
 # macOS specific files
 .DS_Store
-test
