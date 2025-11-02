@@ -6,14 +6,15 @@ import (
 	"parent/fetcher"
 )
 
-func SyncCrawl (urls []string)  {
+func SyncCrawl (urls []string) []string {
 	// Start of the synchronous web crawler
 	fmt.Println("Synchronous crawling")
+	var results []string
 	for _, url := range urls {
-		// This will result in main goroutine exiting before crawl completes
-		// go crawl(url)
 
 		// Synchronous call to crawl
-		fetcher.Fetch(url)
+		title := fetcher.Fetch(url)
+		results = append(results, title)
 	}
+	return results
 }

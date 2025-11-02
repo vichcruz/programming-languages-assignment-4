@@ -7,15 +7,15 @@ import (
 	"parent/fetcher"
 )
 
-func ConcCrawl (urls []string) {
+func ConcCrawl (urls []string, result chan string) {
 	var wg sync.WaitGroup
 	// Start of the concurrent web crawler
 	fmt.Println("Concurrent crawling")
-	for index, url := range urls {
+	for _, url := range urls {
 		// Concurrenty crawler
 		wg.Go(func() {
-			fetcher.Fetch(url)
-			fmt.Println(index)
+			title := fetcher.Fetch(url)
+			result <- title
 		})
 	}
 
