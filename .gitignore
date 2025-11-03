@@ -23,3 +23,9 @@ go.work
 
 # macOS specific files
 .DS_Store
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
+*.7z
