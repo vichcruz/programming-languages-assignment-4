@@ -1,0 +1,36 @@
+{
+  "build": {
+    "desc": "Compile the Go project",
+    "cmd": "go build ./...",
+    "cwd": "./",
+    "deps": ["generate"]
+  },
+
+  "generate": {
+    "desc": "Run code generation scripts",
+    "cmd": "go generate ./...",
+    "cwd": "./",
+    "deps": []
+  },
+
+  "test": {
+    "desc": "Run all tests",
+    "cmd": "go test ./...",
+    "cwd": "./",
+    "deps": ["build"]
+  },
+
+  "lint": {
+    "desc": "Run linter",
+    "cmd": "golangci-lint run",
+    "cwd": "./",
+    "deps": []
+  },
+
+  "all": {
+    "desc": "Run everything",
+    "cmd": "generate && build && lint && test",
+    "cwd": "./",
+    "deps": ["lint", "test"]
+  }
+}
