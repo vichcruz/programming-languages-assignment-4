@@ -3,14 +3,7 @@
     "desc": "Compile the Go project",
     "cmd": "go build ./...",
     "cwd": "./",
-    "deps": ["generate"]
-  },
-
-  "generate": {
-    "desc": "Run code generation scripts",
-    "cmd": "go generate ./...",
-    "cwd": "./",
-    "deps": []
+    "deps": ["lint"]
   },
 
   "test": {
@@ -27,10 +20,10 @@
     "deps": []
   },
 
-  "all": {
-    "desc": "Run everything",
-    "cmd": "generate && build && lint && test",
+  "clean": {
+    "desc": "Remove build artifacts",
+    "cmd": "rm cli-task-runner",
     "cwd": "./",
-    "deps": ["lint", "test"]
+    "deps": ["build"]
   }
 }
