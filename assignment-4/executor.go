@@ -18,9 +18,30 @@ type Task struct {
 
 type ConfigFile map[string]Task
 
-func main()  {
-	// TODO: add a dag analysis to check for cyclic dependenciees first
+// Cycle detection method that uses DFS
+func detectCycle(name string, config ConfigFile, visiting, visited map[string]bool) bool {
+	if visiting[name] {
+		return true // cycle found
+	}
+	if visited[name] {
+		return false // already processed, no cycle
+	}
 
+	visiting[name] = true
+
+	task := config[name]
+	for _, dep := range task.DEPS {
+		if detectCycle(dep, config, visiting, visited) {
+			return true
+		}
+	}
+
+	visiting[name] = false
+	visited[name] = true
+	return false
+}
+
+func main() {
 	f, err := os.Open("cli-tasks.json")
 	if err != nil {
 		fmt.Printf("Reading file error %s\n", err)
@@ -41,6 +62,17 @@ func main()  {
 	if err := dec.Decode(&cfg); err != nil {
 		fmt.Println("json decode error:", err)
 		return
+	}
+
+	// Create visiting and visited maps for cycle detection
+	visiting := map[string]bool{}
+	visited := map[string]bool{}
+
+	for name := range cfg {
+		if detectCycle(name, cfg, visiting, visited) {
+			fmt.Println("Cyclic dependency detected!")
+			return
+		}
 	}
 
 	// TODO: use errGroup.Group or errorChannel to handle errors and cancel tasks if any dependecy failed
@@ -71,6 +103,9 @@ func main()  {
 					return
 				}
 				// Wait for dependency to finish
+				// This blocks further execution until we get a value or depChan is closed
+				// In case it was closed, the zero value of the type inside the channel is returned and execution can continue
+				// Reads on a closed channel proceed immediately but a send would panic
 				<-depChan
 			}
 			// Split CMD into command + args
@@ -80,7 +115,7 @@ func main()  {
 			// Load environment variables and set working directory
 			cmd.Env = os.Environ()
 			cmd.Dir = task.CWD
-		
+
 			// Execute command and capture combined output (stdout + stderr)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -88,7 +123,7 @@ func main()  {
 				return
 			}
 			// Print command output
-			fmt.Printf("Output from task %s:\n%s\n",name, string(out))
+			fmt.Printf("Output from task %s:\n%s\n", name, string(out))
 
 			// Signal task completion by closing channel
 			close(taskChans[name])
