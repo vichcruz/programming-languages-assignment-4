@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Task struct {
@@ -75,8 +77,9 @@ func main() {
 		}
 	}
 
-	// TODO: use errGroup.Group or errorChannel to handle errors and cancel tasks if any dependecy failed
-	var wg sync.WaitGroup
+	// TODO: check errGroup number of goroutines limitations
+	// This creates a new errorGroup with a cancelable context derived from its parent (here: context.Background())
+	eg, ctx := errgroup.WithContext(context.Background())
 
 	// Mapping of task name to channel
 	taskChans := make(map[string]chan struct{})
@@ -90,45 +93,53 @@ func main() {
 
 	for configName, configTask := range cfg {
 		// Start goroutine for each task inside a waitGroup
-		wg.Add(1)
-		go func(name string, task Task) {
-			defer wg.Done()
-			fmt.Printf("Task Name: %s\nDescription: %s\n", name, task.DESC)
+		eg.Go(func() error {
+			fmt.Printf("Task Name: %s\nDescription: %s\n", configName, configTask.DESC)
 
 			// Wait for dependencies to complete
-			for _, dep := range task.DEPS {
+			for _, dep := range configTask.DEPS {
 				depChan, exists := taskChans[dep]
 				if !exists {
-					fmt.Printf("Dependency %s not found for task %s\n", dep, name)
-					return
+					fmt.Printf("Dependency %s not found for task %s\n", dep, configName)
+					return nil
 				}
 				// Wait for dependency to finish
 				// This blocks further execution until we get a value or depChan is closed
 				// In case it was closed, the zero value of the type inside the channel is returned and execution can continue
 				// Reads on a closed channel proceed immediately but a send would panic
-				<-depChan
+				// If context was cancelled due to some error during execution, the task is aborted
+				select {
+				case <-depChan:
+					// dependency finished normally
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
 			// Split CMD into command + args
-			parts := strings.Fields(task.CMD)
+			parts := strings.Fields(configTask.CMD)
 			// Create command to execute
-			cmd := exec.Command(parts[0], parts[1:]...)
+			cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
 			// Load environment variables and set working directory
 			cmd.Env = os.Environ()
-			cmd.Dir = task.CWD
+			cmd.Dir = configTask.CWD
 
 			// Execute command and capture combined output (stdout + stderr)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				fmt.Printf("command failed: %v\noutput: \n%s\n", err, string(out))
-				return
+				return err
 			}
 			// Print command output
-			fmt.Printf("Output from task %s:\n%s\n", name, string(out))
+			fmt.Printf("Output from task %s:\n%s\n", configName, string(out))
 
 			// Signal task completion by closing channel
-			close(taskChans[name])
-		}(configName, configTask)
+			defer close(taskChans[configName])
+
+			return nil
+		})
 	}
 
-	wg.Wait()
+	if err := eg.Wait(); err != nil {
+		fmt.Printf("Error: %s\n", err)
+	}
 }
