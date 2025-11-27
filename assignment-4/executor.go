@@ -92,15 +92,18 @@ func main() {
 	}
 
 	for configName, configTask := range cfg {
+		// Create local copies to avoid loop variable capture issue
+		name := configName
+		task := configTask
 		// Start goroutine for each task inside a waitGroup
 		eg.Go(func() error {
-			fmt.Printf("Task Name: %s\nDescription: %s\n", configName, configTask.DESC)
+			fmt.Printf("Task Name: %s\nDescription: %s\n", name, task.DESC)
 
 			// Wait for dependencies to complete
-			for _, dep := range configTask.DEPS {
+			for _, dep := range task.DEPS {
 				depChan, exists := taskChans[dep]
 				if !exists {
-					fmt.Printf("Dependency %s not found for task %s\n", dep, configName)
+					fmt.Printf("Dependency %s not found for task %s\n", dep, name)
 					return nil
 				}
 				// Wait for dependency to finish
@@ -116,12 +119,12 @@ func main() {
 				}
 			}
 			// Split CMD into command + args
-			parts := strings.Fields(configTask.CMD)
+			parts := strings.Fields(task.CMD)
 			// Create command to execute
 			cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
 			// Load environment variables and set working directory
 			cmd.Env = os.Environ()
-			cmd.Dir = configTask.CWD
+			cmd.Dir = task.CWD
 
 			// Execute command and capture combined output (stdout + stderr)
 			out, err := cmd.CombinedOutput()
@@ -130,10 +133,10 @@ func main() {
 				return err
 			}
 			// Print command output
-			fmt.Printf("Output from task %s:\n%s\n", configName, string(out))
+			fmt.Printf("Output from task %s:\n%s\n", name, string(out))
 
 			// Signal task completion by closing channel
-			defer close(taskChans[configName])
+			defer close(taskChans[name])
 
 			return nil
 		})
