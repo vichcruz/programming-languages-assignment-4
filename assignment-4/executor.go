@@ -106,7 +106,7 @@ func main() {
 			for _, dep := range task.DEPS {
 				depChan, exists := taskChans[dep]
 				if !exists {
-					return fmt.Errorf("dependency %s not found for task %s", dep, configName)
+					return fmt.Errorf("dependency %s not found for task %s", dep, name)
 				}
 				// Wait for dependency to finish
 				// This blocks further execution until we get a value or depChan is closed
@@ -131,7 +131,7 @@ func main() {
 			// Execute command and capture combined output (stdout + stderr)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				return fmt.Errorf("task %s failed: %w", configName, err)
+				return fmt.Errorf("task %s failed: %w", name, err)
 			}
 
 			// Print command output
