@@ -92,7 +92,7 @@ func main() {
 	}
 
 	for configName, configTask := range cfg {
-		// Start goroutine for each task inside a waitGroup
+		// Start goroutine for each task inside an errgroup
 		eg.Go(func() error {
 			fmt.Printf("Task Name: %s\nDescription: %s\n", configName, configTask.DESC)
 
