@@ -97,6 +97,9 @@ func main() {
 		task := configTask
 		// Start goroutine for each task inside an errgroup
 		eg.Go(func() error {
+			// Signal task completion by closing channel
+			defer close(taskChans[name])
+
 			fmt.Printf("Task Name: %s\nDescription: %s\n", name, task.DESC)
 
 			// Wait for dependencies to complete
@@ -133,9 +136,6 @@ func main() {
 
 			// Print command output
 			fmt.Printf("Output from task %s:\n%s\n", name, string(out))
-
-			// Signal task completion by closing channel
-			defer close(taskChans[name])
 
 			return nil
 		})
