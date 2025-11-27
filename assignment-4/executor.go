@@ -100,8 +100,7 @@ func main() {
 			for _, dep := range configTask.DEPS {
 				depChan, exists := taskChans[dep]
 				if !exists {
-					fmt.Printf("Dependency %s not found for task %s\n", dep, configName)
-					return nil
+					return fmt.Errorf("dependency %s not found for task %s", dep, configName)
 				}
 				// Wait for dependency to finish
 				// This blocks further execution until we get a value or depChan is closed
