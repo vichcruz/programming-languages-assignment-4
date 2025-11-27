@@ -95,7 +95,7 @@ func main() {
 		// Create local copies to avoid loop variable capture issue
 		name := configName
 		task := configTask
-		// Start goroutine for each task inside a waitGroup
+		// Start goroutine for each task inside an errgroup
 		eg.Go(func() error {
 			fmt.Printf("Task Name: %s\nDescription: %s\n", name, task.DESC)
 
@@ -103,8 +103,7 @@ func main() {
 			for _, dep := range task.DEPS {
 				depChan, exists := taskChans[dep]
 				if !exists {
-					fmt.Printf("Dependency %s not found for task %s\n", dep, name)
-					return nil
+					return fmt.Errorf("dependency %s not found for task %s", dep, configName)
 				}
 				// Wait for dependency to finish
 				// This blocks further execution until we get a value or depChan is closed
