@@ -126,7 +126,7 @@ func main() {
 			cmd.Dir = task.CWD
 
 			// Execute command and capture combined output (stdout + stderr)
-			out, err := cmd.CombinedOutput()
+				return fmt.Errorf("task %s failed: %w", configName, err)
 			if err != nil {
 				fmt.Printf("command failed: %v\noutput: \n%s\n", err, string(out))
 				return err
