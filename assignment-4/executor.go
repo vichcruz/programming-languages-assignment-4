@@ -108,8 +108,6 @@ func main() {
 			// Signal task completion by closing channel
 			defer close(taskChans[name])
 
-			fmt.Printf("Task Name: %s\nDescription: %s\n", name, task.DESC)
-
 			// Wait for dependencies to complete
 			for _, dep := range task.DEPS {
 				depChan, exists := taskChans[dep]
@@ -139,8 +137,13 @@ func main() {
 			// Execute command and capture combined output (stdout + stderr)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				return fmt.Errorf("task %s failed: %w", name, err)
+				return fmt.Errorf("\ntask %s failed:\n%w", name, err)
 			}
+
+			fmt.Println("---------------------------------------------------------")
+
+			fmt.Printf("TASK NAME: %s\n", name)
+			fmt.Printf("Description: %s\n\n", task.DESC)
 
 			// Print command output
 			fmt.Printf("Output from task %s:\n%s\n", name, string(out))
