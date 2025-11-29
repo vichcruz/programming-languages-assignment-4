@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -44,115 +45,104 @@ func detectCycle(name string, config ConfigFile, visiting, visited map[string]bo
 	return false
 }
 
-func main() {
-	f, err := os.Open("cli-tasks.json")
-	if err != nil {
-		fmt.Printf("Reading file error %s\n", err)
-		return
-	}
-
-	// Defer file close to ensure file is closed after reading regardless of success or failure
-	defer func() {
-		if err := f.Close(); err != nil {
-			fmt.Printf("Error closing file: %s\n", err)
-		}
-	}()
-
-	// Decode JSON config according to our types
+func LoadConfig(r io.Reader) (ConfigFile, error) {
 	var cfg ConfigFile
-	dec := json.NewDecoder(f)
-	dec.DisallowUnknownFields() // helps catch typos in JSON keys
-	if err := dec.Decode(&cfg); err != nil {
-		fmt.Println("json decode error:", err)
-		return
-	}
+	dec := json.NewDecoder(r)
+	dec.DisallowUnknownFields()
+	return cfg, dec.Decode(&cfg)
+}
 
-	// Create visiting and visited maps for cycle detection
+func RunTasks(ctx context.Context, cfg ConfigFile, limit int, w io.Writer) error {
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(limit)
+
 	visiting := map[string]bool{}
 	visited := map[string]bool{}
 
 	for name := range cfg {
 		if detectCycle(name, cfg, visiting, visited) {
-			fmt.Println("Cyclic dependency detected!")
-			return
+			return fmt.Errorf("cyclic dependency detected")
 		}
 	}
 
-	// This creates a new errorGroup with a cancelable context derived from its parent (here: context.Background())
-	eg, ctx := errgroup.WithContext(context.Background())
-
-	// Get max nubmer of goroutines from CLI flag with a fallback of 4
-	var maxNumberOfGoroutines int
-	flag.IntVar(&maxNumberOfGoroutines, "max", 4, "Please give the maximum amount of goroutines that are executed at the same time.")
-
-	flag.Parse()
-
-	eg.SetLimit(maxNumberOfGoroutines)
-
-	// Mapping of task name to channel
 	taskChans := make(map[string]chan struct{})
-
-	// Make sure channels exist before running the task goroutines
 	for name := range cfg {
-		// Create a channel for each task and map it to its name
-		ch := make(chan struct{})
-		taskChans[name] = ch
+		taskChans[name] = make(chan struct{})
 	}
 
-	for configName, configTask := range cfg {
-		// Create local copies to avoid loop variable capture issue
-		name := configName
-		task := configTask
-		// Start goroutine for each task inside an errgroup
-		eg.Go(func() error {
-			// Signal task completion by closing channel
-			defer close(taskChans[name])
+	for name, task := range cfg {
+		taskName := name
+		configTask := task
 
-			// Wait for dependencies to complete
-			for _, dep := range task.DEPS {
-				depChan, exists := taskChans[dep]
-				if !exists {
-					return fmt.Errorf("dependency %s not found for task %s", dep, name)
+		eg.Go(func() error {
+			defer close(taskChans[taskName])
+
+			// --- Wait on dependencies ---
+			for _, dep := range configTask.DEPS {
+				depChan, ok := taskChans[dep]
+				if !ok {
+					return fmt.Errorf("dependency %s not found for task %s", dep, taskName)
 				}
-				// Wait for dependency to finish
-				// This blocks further execution until we get a value or depChan is closed
-				// In case it was closed, the zero value of the type inside the channel is returned and execution can continue
-				// Reads on a closed channel proceed immediately but a send would panic
-				// If context was cancelled due to some error during execution, the task is aborted
+
 				select {
 				case <-depChan:
-					// dependency finished normally
 				case <-ctx.Done():
 					return ctx.Err()
 				}
 			}
-			// Split CMD into command + args
-			parts := strings.Fields(task.CMD)
-			// Create command to execute
-			cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
-			// Load environment variables and set working directory
-			cmd.Env = os.Environ()
-			cmd.Dir = task.CWD
 
-			// Execute command and capture combined output (stdout + stderr)
+			parts := strings.Fields(configTask.CMD)
+			cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+			cmd.Dir = configTask.CWD
+			cmd.Env = os.Environ()
+
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				return fmt.Errorf("\ntask %s failed:\n%w", name, err)
+				return fmt.Errorf("task %s failed: %w", taskName, err)
 			}
 
-			fmt.Println("---------------------------------------------------------")
+			if _, err := fmt.Fprintf(w, "---- %s ----\n", taskName); err != nil {
+				return err
+			}
 
-			fmt.Printf("TASK NAME: %s\n", name)
-			fmt.Printf("Description: %s\n\n", task.DESC)
-
-			// Print command output
-			fmt.Printf("Output from task %s:\n%s\n", name, string(out))
+			if _, err := fmt.Fprintf(w, "Output:\n%s\n", string(out)); err != nil {
+				return err
+			}
 
 			return nil
 		})
 	}
 
-	if err := eg.Wait(); err != nil {
-		fmt.Printf("Error: %s\n", err)
+	return eg.Wait()
+}
+
+func main() {
+	var (
+		limit int
+		file  string
+	)
+
+	flag.IntVar(&limit, "max", 4, "Max goroutines")
+	flag.StringVar(&file, "file", "cli-tasks.json", "Config file")
+	flag.Parse()
+
+	f, err := os.Open(file)
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to close file: %v\n", err)
+		}
+	}()
+
+	cfg, err := LoadConfig(f)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := RunTasks(context.Background(), cfg, limit, os.Stdout); err != nil {
+		fmt.Println("Error:", err)
 	}
 }
