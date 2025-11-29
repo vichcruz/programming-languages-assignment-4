@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -77,9 +78,16 @@ func main() {
 		}
 	}
 
-	// TODO: check errGroup number of goroutines limitations
 	// This creates a new errorGroup with a cancelable context derived from its parent (here: context.Background())
 	eg, ctx := errgroup.WithContext(context.Background())
+
+	// Get max nubmer of goroutines from CLI flag with a fallback of 4
+	var maxNumberOfGoroutines int
+	flag.IntVar(&maxNumberOfGoroutines, "max", 4, "Please give the maximum amount of goroutines that are executed at the same time.")
+
+	flag.Parse()
+
+	eg.SetLimit(maxNumberOfGoroutines)
 
 	// Mapping of task name to channel
 	taskChans := make(map[string]chan struct{})
