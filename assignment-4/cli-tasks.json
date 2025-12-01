@@ -3,14 +3,14 @@
     "desc": "Compile the Go project",
     "cmd": "go build ./...",
     "cwd": "./",
-    "deps": ["lint"]
+    "deps": ["test"]
   },
 
   "test": {
     "desc": "Run all tests",
     "cmd": "go test ./...",
     "cwd": "./",
-    "deps": ["build"]
+    "deps": ["lint"]
   },
 
   "lint": {
@@ -25,5 +25,12 @@
     "cmd": "rm cli-task-runner",
     "cwd": "./",
     "deps": ["build"]
+  },
+
+  "print": {
+    "desc": "Print a test txt file",
+    "cmd": "cat test.txt",
+    "cwd": "./catTest/",
+    "deps": [""]
   }
 }

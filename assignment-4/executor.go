@@ -79,6 +79,10 @@ func RunTasks(ctx context.Context, cfg ConfigFile, limit int, w io.Writer) error
 
 			// --- Wait on dependencies ---
 			for _, dep := range configTask.DEPS {
+				if dep == "" {
+					continue
+				}
+
 				depChan, ok := taskChans[dep]
 				if !ok {
 					return fmt.Errorf("dependency %s not found for task %s", dep, taskName)
@@ -98,7 +102,7 @@ func RunTasks(ctx context.Context, cfg ConfigFile, limit int, w io.Writer) error
 
 			out, err := cmd.CombinedOutput()
 			if err != nil {
-				return fmt.Errorf("task %s failed: %w", taskName, err)
+				return fmt.Errorf("task %s failed: %v\nOutput:\n%s", taskName, err, out)
 			}
 
 			if _, err := fmt.Fprintf(w, "---- %s ----\n", taskName); err != nil {
