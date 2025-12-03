@@ -115,11 +115,11 @@ func TestRunTasksSuccess(t *testing.T) {
 	out := buf.String()
 
 	// Check headers
-	if !strings.Contains(out, "---- a ----") {
+	if !strings.Contains(out, "---- a started ----") {
 		t.Fatalf("expected task header for 'a', got: %s", out)
 	}
 
-	if !strings.Contains(out, "---- b ----") {
+	if !strings.Contains(out, "---- b started ----") {
 		t.Fatalf("expected task header for 'b', got: %s", out)
 	}
 
@@ -157,9 +157,8 @@ func TestRunTasksOrder(t *testing.T) {
 	}
 
 	out := buf.String()
-
-	firstIndex := strings.Index(out, "---- first ----")
-	secondIndex := strings.Index(out, "---- second ----")
+	firstIndex := strings.Index(out, "---- first finished successfully ----")
+	secondIndex := strings.Index(out, "---- second finished successfully ----")
 
 	if secondIndex < firstIndex {
 		t.Fatalf("dependency order violated:\n%s", out)
@@ -197,9 +196,9 @@ func TestRunMultiTasksOrder(t *testing.T) {
 
 	out := buf.String()
 
-	firstIndex := strings.Index(out, "---- first ----")
-	secondIndex := strings.Index(out, "---- second ----")
-	thirdIndex := strings.Index(out, "---- third ----")
+	firstIndex := strings.Index(out, "---- first finished successfully ----")
+	secondIndex := strings.Index(out, "---- second finished successfully ----")
+	thirdIndex := strings.Index(out, "---- third finished successfully ----")
 
 	if (secondIndex < firstIndex) || (thirdIndex < firstIndex) {
 		t.Fatalf("dependency order violated:\n%s", out)
