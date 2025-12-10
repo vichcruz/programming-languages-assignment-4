@@ -11,7 +11,7 @@ import (
 )
 
 // RunTasks executes all tasks concurrently, respecting dependencies
-func RunTasks(ctx context.Context, cfg ConfigFile, maxWorkers int, w io.Writer) error {
+func RunTasks(ctx context.Context, cancel context.CancelFunc, cfg ConfigFile, maxWorkers int, w io.Writer) error {
 	// Check for cyclic dependencies
 	if err := ValidateNoCycles(cfg); err != nil {
 		return err
@@ -59,6 +59,7 @@ func RunTasks(ctx context.Context, cfg ConfigFile, maxWorkers int, w io.Writer) 
 			select {
 			case <-depChan:
 			case <-ctx.Done():
+				fmt.Println("ctx canceled inside runTask BEFORE command finished:", name)
 				close(taskDone[name])
 				return ctx.Err()
 			}
@@ -119,6 +120,7 @@ func RunTasks(ctx context.Context, cfg ConfigFile, maxWorkers int, w io.Writer) 
 			if _, err2 := fmt.Fprintf(w, "---- %s finished with error ----\n %v\n", name, err); err2 != nil {
 				fmt.Fprintf(os.Stderr, "[%s] log write error: : %v\n", name, err2)
 			}
+			return err
 		} else {
 			if _, err2 := fmt.Fprintf(w, "---- %s finished successfully ----\n", name); err2 != nil {
 				fmt.Fprintf(os.Stderr, "[%s] log write error: : %v\n", name, err2)
@@ -127,16 +129,6 @@ func RunTasks(ctx context.Context, cfg ConfigFile, maxWorkers int, w io.Writer) 
 		mu.Unlock()
 
 		close(taskDone[name])
-
-		if err != nil {
-			mu.Lock()
-			if _, err2 := fmt.Fprintf(w, "[%s] finished with error: %v\n", name, err); err2 != nil {
-				mu.Unlock()
-				return err2
-			}
-			mu.Unlock()
-			return err
-		}
 
 		return nil
 	}
@@ -149,6 +141,7 @@ func RunTasks(ctx context.Context, cfg ConfigFile, maxWorkers int, w io.Writer) 
 		go func(n string) {
 			defer wg.Done()
 			if err := runTask(n); err != nil {
+				cancel()
 				errCh <- err
 			}
 		}(name)
@@ -157,8 +150,10 @@ func RunTasks(ctx context.Context, cfg ConfigFile, maxWorkers int, w io.Writer) 
 	wg.Wait()
 	close(errCh)
 
-	if len(errCh) > 0 {
-		return <-errCh
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

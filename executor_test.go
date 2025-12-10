@@ -27,13 +27,14 @@ func TestMissingDeps(t *testing.T) {
 	}
 
 	buf := &bytes.Buffer{}
-	err = RunTasks(context.Background(), cfg, 2, buf)
+	ctx, cancel := context.WithCancel(context.Background())
+	runErr := RunTasks(ctx, cancel, cfg, 1, buf)
 
-	if err == nil {
+	if runErr == nil {
 		t.Fatal("expected error for missing dependency, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "dependency DoesNotExist not found") {
+	if !strings.Contains(runErr.Error(), "dependency DoesNotExist not found") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -66,13 +67,14 @@ func TestCyclicDeps(t *testing.T) {
 	}
 
 	buf := &bytes.Buffer{}
-	err = RunTasks(context.Background(), cfg, 2, buf)
+	ctx, cancel := context.WithCancel(context.Background())
+	runErr := RunTasks(ctx, cancel, cfg, 1, buf)
 
-	if err == nil {
+	if runErr == nil {
 		t.Fatal("expected error for cyclic dependencies, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "cyclic dependency detected") {
+	if !strings.Contains(runErr.Error(), "cyclic dependency detected") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -106,9 +108,8 @@ func TestRunTasksSuccess(t *testing.T) {
 	}
 
 	buf := &bytes.Buffer{}
-
-	err = RunTasks(context.Background(), cfg, 2, buf)
-	if err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := RunTasks(ctx, cancel, cfg, 1, buf); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -151,8 +152,8 @@ func TestRunTasksOrder(t *testing.T) {
 
 	cfg, _ := LoadConfig(strings.NewReader(json))
 	buf := &bytes.Buffer{}
-
-	if err := RunTasks(context.Background(), cfg, 4, buf); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := RunTasks(ctx, cancel, cfg, 1, buf); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -189,8 +190,8 @@ func TestRunMultiTasksOrder(t *testing.T) {
 
 	cfg, _ := LoadConfig(strings.NewReader(json))
 	buf := &bytes.Buffer{}
-
-	if err := RunTasks(context.Background(), cfg, 4, buf); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := RunTasks(ctx, cancel, cfg, 1, buf); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -225,8 +226,8 @@ func TestRunTasksWithCwd(t *testing.T) {
 
 	cfg, _ := LoadConfig(strings.NewReader(json))
 	buf := &bytes.Buffer{}
-
-	if err := RunTasks(context.Background(), cfg, 1, buf); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := RunTasks(ctx, cancel, cfg, 1, buf); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 

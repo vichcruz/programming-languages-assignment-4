@@ -35,8 +35,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := context.Background()
-	if err := RunTasks(ctx, cfg, limit, os.Stdout); err != nil {
+	mainCtx := context.Background()
+	ctx, cancel := context.WithCancel(mainCtx)
+	if err := RunTasks(ctx, cancel, cfg, limit, os.Stdout); err != nil {
 		fmt.Fprintf(os.Stderr, "error running tasks: %v\n", err)
 		os.Exit(1)
 	}
